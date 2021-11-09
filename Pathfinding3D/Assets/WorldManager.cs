@@ -5,12 +5,16 @@ using UnityEngine;
 public class WorldManager : MonoBehaviour
 {
     public static WorldManager Instance { get; private set; }
-
-    [SerializeField] Transform _GridStartPoint;
     [SerializeField] GameObject _GridPointPrefab;
-    [SerializeField] Texture2D _GridTexture;
-    public Point[][] Grid;
+    [SerializeField] int GridWidth;
+    [SerializeField] int GridHeight;
+    [SerializeField] int GridLength;
+    public Point[][][] Grid;
     public float PointDistance;
+    public float PointSize;
+    public float InvalidPointSize;
+
+    Vector3 startPoint;
 
     private void Awake()
     {
@@ -23,61 +27,63 @@ public class WorldManager : MonoBehaviour
         InitializeGrid();
     }
 
+    private void AddNeighbour(Point p, Vector3Int neighbour) 
+    { 
+        if(neighbour.x>-1 && neighbour.x< GridWidth &&
+           neighbour.y > -1 && neighbour.y < GridHeight &&
+           neighbour.z > -1 && neighbour.z < GridLength)
+        {
+            p.Neighbours.Add(neighbour);
+        }
+    }
+
     private void InitializeGrid()
     {
+        startPoint = new Vector3(-GridWidth, -GridHeight, -GridLength) / 2f * PointDistance + transform.position;
         GameObject gridParent = new GameObject("Grid");
-        Grid = new Point[_GridTexture.width][];
-        for (int i = 0; i < _GridTexture.width; i++)
+        Grid = new Point[GridWidth][][];
+        for (int i = 0; i < GridWidth; i++)
         {
-            Grid[i] = new Point[_GridTexture.height];
-            for (int j = 0; j < _GridTexture.height; j++)
+            Grid[i] = new Point[GridHeight][];
+            for (int j = 0; j < GridHeight; j++)
             {
-                Vector3 pos = _GridStartPoint.position + new Vector3(i, 0, j) * PointDistance;
-                GameObject point = Instantiate(_GridPointPrefab, pos, Quaternion.identity);
-                point.transform.parent = gridParent.transform;
-                Grid[i][j] = point.GetComponent<GridPoint>().Point;
-                Grid[i][j].Coords = new Vector2Int(i, j);
-                Grid[i][j].Transform = point.transform;
-                if (_GridTexture.GetPixel(i, j).r == 0)
+                Grid[i][j] = new Point[GridLength];
+                for (int k = 0; k < GridLength; k++)
                 {
-                    Grid[i][j].Invalid = true;
-                    point.transform.localScale = Vector3.one*PointDistance;
-                    continue;
-                }
-                if (i > 0)
-                {
-                    Grid[i][j].Neighbours.Add(new Vector2Int(i - 1, j));
-                }
-                if (i < Grid.Length - 1)
-                {
-                    Grid[i][j].Neighbours.Add(new Vector2Int(i + 1, j));
-                }
-                if (j > 0)
-                {
-                    Grid[i][j].Neighbours.Add(new Vector2Int(i, j - 1));
-                }
-                if (j < Grid[0].Length - 1)
-                {
-                    Grid[i][j].Neighbours.Add(new Vector2Int(i, j + 1));
-                }
-                if (i > 0 && j > 0)
-                {
-                    Grid[i][j].Neighbours.Add(new Vector2Int(i - 1, j - 1));
-                }
-                if (i < Grid.Length - 1 && j < Grid[0].Length - 1)
-                {
-                    Grid[i][j].Neighbours.Add(new Vector2Int(i + 1, j + 1));
-                }
-                if (i > 0 && j < Grid[0].Length - 1)
-                {
-                    Grid[i][j].Neighbours.Add(new Vector2Int(i - 1, j + 1));
-                }
-                if (i < Grid.Length - 1 && j > 0)
-                {
-                    Grid[i][j].Neighbours.Add(new Vector2Int(i + 1, j - 1));
+                    Vector3 pos = startPoint + new Vector3(i, j, k) * PointDistance;
+                    GameObject point = Instantiate(_GridPointPrefab, pos, Quaternion.identity);
+                    point.transform.parent = gridParent.transform;
+                    Grid[i][j][k] = point.GetComponent<GridPoint>().Point;
+                    Grid[i][j][k].Coords = new Vector3Int(i, j,k);
+                    Grid[i][j][k].Transform = point.transform;
+                    Grid[i][j][k].Transform.localScale = Vector3.one * PointSize;
+                    if(Physics.CheckBox(Grid[i][j][k].Transform.position, Vector3.one * PointDistance/2f, Quaternion.identity))
+                    {
+                        Grid[i][j][k].Invalid = true;
+                        Grid[i][j][k].Transform.localScale = Vector3.one * PointDistance* InvalidPointSize;
+                    }
+                    for (int p = -1; p <= 1; p++)
+                    {
+                        for (int q = -1; q <= 1; q++)
+                        {
+                            for (int g = -1; g <= 1; g++)
+                            {
+                                if (i == p && q == j && g == p)
+                                {
+                                    continue;
+                                }
+                                AddNeighbour(Grid[i][j][k], new Vector3Int(i + p, j + q, k + g));
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.DrawWireCube(transform.position, new Vector3(GridWidth, GridHeight, GridLength)*PointDistance);
     }
 
     public int ID = 0;
@@ -85,19 +91,14 @@ public class WorldManager : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(2))
         {
-            for (int i = 0; i < _GridTexture.width; i++)
+            for (int i = 0; i <GridWidth; i++)
             {
-                for (int j = 0; j < _GridTexture.height; j++)
+                for (int j = 0; j < GridHeight; j++)
                 {
-                    if (_GridTexture.GetPixel(i, j).r == 1)
+                    for (int k = 0; k < GridLength; k++)
                     {
-                        Grid[i][j].Transform.localScale = Vector3.one * 0.5f;
-                        Grid[i][j].Invalid = false;
-                    }
-                    else
-                    {
-                        Grid[i][j].Transform.localScale = Vector3.one*PointDistance;
-                        Grid[i][j].Invalid = true;
+                        Grid[i][j][k].Transform.localScale = Vector3.one * 0.5f;
+                        Grid[i][j][k].Invalid = false;
                     }
                 }
             }
@@ -119,13 +120,16 @@ public class WorldManager : MonoBehaviour
 
     public Point GetClosestPointWorldSpace(Vector3 position)
     {
-        float sizeX = PointDistance * _GridTexture.width;
-        float sizeY = PointDistance * _GridTexture.height;
-        Vector3 pos = position - _GridStartPoint.position;
+        float sizeX = PointDistance * GridWidth;
+        float sizeY = PointDistance * GridHeight;
+        float sizeZ = PointDistance * GridLength;
+        Vector3 pos = position - startPoint;
         float percentageX = pos.x / sizeX;
-        float percentageY = pos.z / sizeY;
-        int x = Mathf.RoundToInt(percentageX * _GridTexture.width);
-        int y = Mathf.RoundToInt(percentageY * _GridTexture.height);
-        return Grid[x][y];
+        float percentageY = pos.y / sizeY;
+        float percentageZ = pos.z / sizeZ;
+        int x = Mathf.RoundToInt(percentageX * GridWidth);
+        int y = Mathf.RoundToInt(percentageY * GridHeight);
+        int z = Mathf.RoundToInt(percentageZ * GridLength);
+        return Grid[x][y][z];
     }
 }

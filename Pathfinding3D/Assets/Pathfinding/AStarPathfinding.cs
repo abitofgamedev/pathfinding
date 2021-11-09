@@ -6,16 +6,16 @@ using UnityEngine;
 [System.Serializable]
 public class Point
 {
-    public Vector2Int Coords;
+    public Vector3Int Coords;
     public Transform Transform;
-    public List<Vector2Int> Neighbours;
+    public List<Vector3Int> Neighbours;
     public bool Invalid;
     public AStarPathfinding MovingObj;
 
     public Point(Transform point)
     {
         Transform = point;
-        Neighbours = new List<Vector2Int>();
+        Neighbours = new List<Vector3Int>();
     }
 }
 
@@ -23,14 +23,14 @@ public class PointData
 {
     public float GScore;
     public float FScore;
-    public Vector2Int CameFrom;
-    public Vector2Int Coords;
+    public Vector3Int CameFrom;
+    public Vector3Int Coords;
 
     public PointData(Point point)
     {
         GScore = Mathf.Infinity;
         FScore = Mathf.Infinity;
-        CameFrom = new Vector2Int(-1, -1);
+        CameFrom = new Vector3Int(-1, -1, -1);
         Coords = point.Coords;
     }
 }
@@ -56,9 +56,12 @@ public class AStarPathfinding : MonoBehaviour
             {
                 for (int j = 0; j < WorldManager.Instance.Grid[i].Length; j++)
                 {
-                    if (!WorldManager.Instance.Grid[i][j].Invalid)
+                    for (int k = 0; k < WorldManager.Instance.Grid[i].Length; k++)
                     {
-                        freePoints.Add(WorldManager.Instance.Grid[i][j]);
+                        if (!WorldManager.Instance.Grid[i][j][k].Invalid)
+                        {
+                            freePoints.Add(WorldManager.Instance.Grid[i][j][k]);
+                        }
                     }
                 }
             }
@@ -80,15 +83,15 @@ public class AStarPathfinding : MonoBehaviour
         return (p2 - p1).sqrMagnitude;
     }
 
-    private List<Point> ReconstructPath(PointData start,PointData current,PointData[][] dataSet)
+    private List<Point> ReconstructPath(PointData start,PointData current,PointData[][][] dataSet)
     {
         List<Point> totalPath = new List<Point>();
-        totalPath.Add(WorldManager.Instance.Grid[current.Coords.x][current.Coords.y]);
+        totalPath.Add(WorldManager.Instance.Grid[current.Coords.x][current.Coords.y][current.Coords.z]);
         int count = 0;
         while (current.CameFrom.x != -1 && count<10000)
         {
-            totalPath.Add(WorldManager.Instance.Grid[current.CameFrom.x][current.CameFrom.y]);
-            current = dataSet[current.CameFrom.x][current.CameFrom.y];
+            totalPath.Add(WorldManager.Instance.Grid[current.CameFrom.x][current.CameFrom.y][current.CameFrom.z]);
+            current = dataSet[current.CameFrom.x][current.CameFrom.y][current.CameFrom.z];
             if(start.Coords == current.Coords)
             {
                 break;
@@ -145,16 +148,20 @@ public class AStarPathfinding : MonoBehaviour
 
     private List<Point> AStar(Point start, Point goal)
     {
-        PointData[][] dataSet = new PointData[WorldManager.Instance.Grid.Length][];
+        PointData[][][] dataSet = new PointData[WorldManager.Instance.Grid.Length][][];
         for (int i = 0; i < dataSet.Length; i++)
         {
-            dataSet[i] = new PointData[WorldManager.Instance.Grid[i].Length];
+            dataSet[i] = new PointData[WorldManager.Instance.Grid[i].Length][];
+            for (int j = 0; j < dataSet[i].Length; j++)
+            {
+                dataSet[i][j] = new PointData[WorldManager.Instance.Grid[i][j].Length];
+            }
         }
 
         List<PointData> openSet = new List<PointData>();
 
         PointData startPoint = new PointData(start);
-        dataSet[start.Coords.x][start.Coords.y] = startPoint;
+        dataSet[start.Coords.x][start.Coords.y][start.Coords.z] = startPoint;
         startPoint.GScore = 0;
         openSet.Add(startPoint);
 
@@ -169,17 +176,17 @@ public class AStarPathfinding : MonoBehaviour
             openSet.RemoveAt(0);
             HeapifyDeletion(openSet, 0);
 
-            Point currentPoint = WorldManager.Instance.Grid[current.Coords.x][current.Coords.y];
+            Point currentPoint = WorldManager.Instance.Grid[current.Coords.x][current.Coords.y][current.Coords.z];
             for (int i = 0; i < currentPoint.Neighbours.Count; i++)
             {
-                Vector2Int indexes = currentPoint.Neighbours[i];
-                Point neighbour = WorldManager.Instance.Grid[indexes.x][indexes.y];
-                PointData neighbourData = dataSet[indexes.x][indexes.y];
+                Vector3Int indexes = currentPoint.Neighbours[i];
+                Point neighbour = WorldManager.Instance.Grid[indexes.x][indexes.y][indexes.z];
+                PointData neighbourData = dataSet[indexes.x][indexes.y][indexes.z];
                 bool neighbourPassed = true;
                 if (neighbourData == null)
                 {
                     neighbourData = new PointData(neighbour);
-                    dataSet[indexes.x][indexes.y] = neighbourData;
+                    dataSet[indexes.x][indexes.y][indexes.z] = neighbourData;
                     neighbourPassed = false;
                 }
                 bool priorityPass = neighbour.MovingObj == null || neighbour.MovingObj.ID > ID;
@@ -324,13 +331,16 @@ public class AStarPathfinding : MonoBehaviour
         while (true)
         {
             List<Point> freePoints = new List<Point>();
-            for(int i = 0; i < WorldManager.Instance.Grid.Length; i++)
+            for (int i = 0; i < WorldManager.Instance.Grid.Length; i++)
             {
-                for(int j = 0; j < WorldManager.Instance.Grid[i].Length; j++)
+                for (int j = 0; j < WorldManager.Instance.Grid[i].Length; j++)
                 {
-                    if (!WorldManager.Instance.Grid[i][j].Invalid)
+                    for (int k = 0; k < WorldManager.Instance.Grid[i][j].Length; k++)
                     {
-                        freePoints.Add(WorldManager.Instance.Grid[i][j]);
+                        if (!WorldManager.Instance.Grid[i][j][k].Invalid)
+                        {
+                            freePoints.Add(WorldManager.Instance.Grid[i][j][k]);
+                        }
                     }
                 }
             }
