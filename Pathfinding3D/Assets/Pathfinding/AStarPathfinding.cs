@@ -1,3 +1,4 @@
+using PathCreation;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,14 +8,13 @@ using UnityEngine;
 public class Point
 {
     public Vector3Int Coords;
-    public Transform Transform;
+    public Vector3 WorldPosition;
     public List<Vector3Int> Neighbours;
     public bool Invalid;
     public AStarPathfinding MovingObj;
 
-    public Point(Transform point)
+    public Point()
     {
-        Transform = point;
         Neighbours = new List<Vector3Int>();
     }
 }
@@ -46,7 +46,8 @@ public class AStarPathfinding : MonoBehaviour
     Point end;
     public bool MovingObstacle;
     public int ID;
-
+    PathCreator _pathCreator;
+    [SerializeField] PathCreator _PathCreatorPrefab;
     private void Start()
     {
         if (MoveRandom)
@@ -67,7 +68,7 @@ public class AStarPathfinding : MonoBehaviour
             }
 
             start = freePoints[Random.Range(0, freePoints.Count)];
-            transform.position = start.Transform.position;
+            transform.position = start.WorldPosition;
 
             StartCoroutine(Coroutine_MoveRandom());
         }
@@ -83,24 +84,37 @@ public class AStarPathfinding : MonoBehaviour
         return (p2 - p1).sqrMagnitude;
     }
 
+    List<Point> _cornerPoints;
+
     private List<Point> ReconstructPath(PointData start,PointData current,PointData[][][] dataSet)
     {
+        _cornerPoints = new List<Point>();
         List<Point> totalPath = new List<Point>();
         totalPath.Add(WorldManager.Instance.Grid[current.Coords.x][current.Coords.y][current.Coords.z]);
+
+        Vector3 direction =(WorldManager.Instance.Grid[current.Coords.x][current.Coords.y][current.Coords.z].Coords- 
+            WorldManager.Instance.Grid[current.CameFrom.x][current.CameFrom.y][current.CameFrom.z].Coords);
+        _cornerPoints.Add(WorldManager.Instance.Grid[current.Coords.x][current.Coords.y][current.Coords.z]);
+        direction = direction.normalized;
         int count = 0;
         while (current.CameFrom.x != -1 && count<10000)
         {
+            Vector3 dir = (WorldManager.Instance.Grid[current.Coords.x][current.Coords.y][current.Coords.z].Coords -
+            WorldManager.Instance.Grid[current.CameFrom.x][current.CameFrom.y][current.CameFrom.z].Coords);
+            if (dir != direction)
+            {
+                _cornerPoints.Add(WorldManager.Instance.Grid[current.Coords.x][current.Coords.y][current.Coords.z]);
+                direction = dir;
+            }
+         
             totalPath.Add(WorldManager.Instance.Grid[current.CameFrom.x][current.CameFrom.y][current.CameFrom.z]);
             current = dataSet[current.CameFrom.x][current.CameFrom.y][current.CameFrom.z];
-            if(start.Coords == current.Coords)
-            {
-                break;
-            }
-            count++;
 
         }
+        _cornerPoints.Add(WorldManager.Instance.Grid[current.Coords.x][current.Coords.y][current.Coords.z]);
         return totalPath;
     }
+
 
     public int GetIndexFromCoords(Vector2Int coords)
     {
@@ -198,7 +212,7 @@ public class AStarPathfinding : MonoBehaviour
                     {
                         neighbourData.CameFrom = current.Coords;
                         neighbourData.GScore = tenativeScore;
-                        neighbourData.FScore = neighbourData.GScore + HeuristicFunction(neighbour.Transform.position, goal.Transform.position);
+                        neighbourData.FScore = neighbourData.GScore + HeuristicFunction(neighbour.WorldPosition, goal.WorldPosition);
                         if (!neighbourPassed)
                         {
                             openSet.Add(neighbourData);
@@ -219,18 +233,9 @@ public class AStarPathfinding : MonoBehaviour
         if (takenPoint != null)
         {
             takenPoint.MovingObj = null;
-            if (MovingObstacle)
-            {
-                takenPoint.Transform.localScale = Vector3.one *0.5f;
-            }
         }
         takenPoint = WorldManager.Instance.GetClosestPointWorldSpace(transform.position);
         takenPoint.MovingObj = this;
-
-        if (MovingObstacle)
-        {
-            takenPoint.Transform.localScale = Vector3.one * WorldManager.Instance.PointDistance;
-        }
 
         if (MoveRandom)
         {
@@ -272,11 +277,11 @@ public class AStarPathfinding : MonoBehaviour
             SetPathColor(PathColor);
             if (i!=pathBreakPoint)
             {
-                float length = (transform.position - totalPath[i].Transform.position).magnitude;
+                float length = (transform.position - totalPath[i].WorldPosition).magnitude;
                 while (length > Speed * Time.deltaTime)
                 {
-                    transform.position = Vector3.MoveTowards(transform.position, totalPath[i].Transform.position, Speed * Time.deltaTime);
-                    length = (transform.position - totalPath[i].Transform.position).magnitude;
+                    transform.position = Vector3.MoveTowards(transform.position, totalPath[i].WorldPosition, Speed * Time.deltaTime);
+                    length = (transform.position - totalPath[i].WorldPosition).magnitude;
                     totalPath[i].MovingObj = this;
                     yield return null;
                 }
@@ -325,7 +330,32 @@ public class AStarPathfinding : MonoBehaviour
             }
         }
     }
-
+    IEnumerator Coroutine_CharacterFollowPathCurve()
+    {
+        if (_pathCreator == null)
+        {
+            _pathCreator = Instantiate(_PathCreatorPrefab, Vector3.zero, Quaternion.identity);
+        }
+        List<Vector3> points = new List<Vector3>();
+        for(int i = _cornerPoints.Count-1; i >= 0; i--)
+        {
+            points.Add(_cornerPoints[i].WorldPosition);
+        }
+        BezierPath bezierPath = new BezierPath(points, false, PathSpace.xyz);
+        _pathCreator.bezierPath = bezierPath;
+        float length = _pathCreator.path.length;
+        float l = 0;
+        Vector3 pos = transform.position;
+        while (l < length)
+        {
+            SetPathColor(PathColor);
+            transform.position = _pathCreator.path.GetPointAtDistance(l, EndOfPathInstruction.Stop);
+            transform.forward = transform.position - pos;
+            pos = transform.position;
+            l += Time.deltaTime * Speed;
+            yield return null;
+        }
+    }
     IEnumerator Coroutine_MoveRandom()
     {
         yield return null;
@@ -356,7 +386,7 @@ public class AStarPathfinding : MonoBehaviour
                 totalPath = AStar(start, p);
                 yield return null;
             }
-            yield return StartCoroutine(Coroutine_CharacterFollowPath());
+            yield return StartCoroutine(Coroutine_CharacterFollowPathCurve());
 
         }
     }
@@ -368,9 +398,10 @@ public class AStarPathfinding : MonoBehaviour
         {
             int a = 0;
         }
-        for (int j = totalPath.Count - 2; j >= 0; j--)
+        for (int j = _cornerPoints.Count - 2; j >= 0; j--)
         {
-            Debug.DrawLine(totalPath[j + 1].Transform.position, totalPath[j].Transform.position, color,1);
+            Debug.DrawLine(_cornerPoints[j + 1].WorldPosition, _cornerPoints[j].WorldPosition, color,1);
         }
     }
+
 }

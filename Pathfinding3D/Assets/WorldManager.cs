@@ -51,16 +51,12 @@ public class WorldManager : MonoBehaviour
                 for (int k = 0; k < GridLength; k++)
                 {
                     Vector3 pos = startPoint + new Vector3(i, j, k) * PointDistance;
-                    GameObject point = Instantiate(_GridPointPrefab, pos, Quaternion.identity);
-                    point.transform.parent = gridParent.transform;
-                    Grid[i][j][k] = point.GetComponent<GridPoint>().Point;
+                    Grid[i][j][k] = new Point();
                     Grid[i][j][k].Coords = new Vector3Int(i, j,k);
-                    Grid[i][j][k].Transform = point.transform;
-                    Grid[i][j][k].Transform.localScale = Vector3.one * PointSize;
-                    if(Physics.CheckBox(Grid[i][j][k].Transform.position, Vector3.one * PointDistance/2f, Quaternion.identity))
+                    Grid[i][j][k].WorldPosition = pos;
+                    if(Physics.CheckBox(Grid[i][j][k].WorldPosition, Vector3.one * PointDistance/2f, Quaternion.identity))
                     {
                         Grid[i][j][k].Invalid = true;
-                        Grid[i][j][k].Transform.localScale = Vector3.one * PointDistance* InvalidPointSize;
                     }
                     for (int p = -1; p <= 1; p++)
                     {
@@ -97,7 +93,6 @@ public class WorldManager : MonoBehaviour
                 {
                     for (int k = 0; k < GridLength; k++)
                     {
-                        Grid[i][j][k].Transform.localScale = Vector3.one * 0.5f;
                         Grid[i][j][k].Invalid = false;
                     }
                 }
@@ -124,12 +119,12 @@ public class WorldManager : MonoBehaviour
         float sizeY = PointDistance * GridHeight;
         float sizeZ = PointDistance * GridLength;
         Vector3 pos = position - startPoint;
-        float percentageX = pos.x / sizeX;
-        float percentageY = pos.y / sizeY;
-        float percentageZ = pos.z / sizeZ;
-        int x = Mathf.RoundToInt(percentageX * GridWidth);
-        int y = Mathf.RoundToInt(percentageY * GridHeight);
-        int z = Mathf.RoundToInt(percentageZ * GridLength);
+        float percentageX = Mathf.Clamp01(pos.x / sizeX);
+        float percentageY = Mathf.Clamp01(pos.y / sizeY);
+        float percentageZ = Mathf.Clamp01(pos.z / sizeZ);
+        int x = Mathf.Clamp(Mathf.RoundToInt(percentageX * GridWidth), 0, GridWidth - 1);
+        int y = Mathf.Clamp(Mathf.RoundToInt(percentageY * GridHeight), 0, GridHeight - 1);
+        int z = Mathf.Clamp(Mathf.RoundToInt(percentageZ * GridLength), 0, GridLength - 1);
         return Grid[x][y][z];
     }
 }
