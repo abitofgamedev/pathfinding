@@ -97,6 +97,7 @@ public class AStarPathfinding : MonoBehaviour
                 break;
             }
             count++;
+
         }
         return totalPath;
     }
