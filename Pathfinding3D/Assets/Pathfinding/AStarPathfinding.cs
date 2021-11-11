@@ -405,10 +405,14 @@ public class AStarPathfinding : MonoBehaviour
 
     }
 
+    bool resetPathMovement;
     public void RePath()
     {
+        resetPathMovement = true;
+        _start = WorldManager.Instance.GetClosestPointWorldSpace(transform.position);
         totalPath = AStarAvoision(_start, _end);
     }
+
     private void Update()
     {
 
@@ -443,21 +447,16 @@ public class AStarPathfinding : MonoBehaviour
 
             while (length > Speed * Time.deltaTime)
             {
+                if (resetPathMovement)
+                {
+                    i = totalPath.Count - 1;
+                    resetPathMovement = false;
+                }
                 transform.position = Vector3.MoveTowards(transform.position, totalPath[i].WorldPosition, Speed * Time.deltaTime);
                 length = (transform.position - totalPath[i].WorldPosition).magnitude;
                 yield return null;
             }
             totalPath[i].RemoveMovingData(this);
-            //for(int j = i - 1; j >= 0; j--)
-            //{
-            //    for(int k = 0; k < totalPath[j].MovingData.Count; k++)
-            //    {
-            //        if(totalPath[k].MovingData[k].MovingObj == this)
-            //        {
-            //            totalPath[k].MovingData[k]
-            //        }
-            //    }
-            //}
         }
     }
 
