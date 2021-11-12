@@ -64,7 +64,7 @@ public class WorldManager : MonoBehaviour
                         {
                             for (int g = -1; g <= 1; g++)
                             {
-                                if (i == p && q == j && g == p)
+                                if (i == p && g == q && k == g)
                                 {
                                     continue;
                                 }
@@ -82,42 +82,12 @@ public class WorldManager : MonoBehaviour
         Gizmos.DrawWireCube(transform.position, new Vector3(GridWidth, GridHeight, GridLength)*PointDistance);
     }
 
-    public int ID = 0;
-    private void Update()
-    {
-        if (Input.GetMouseButtonDown(2))
-        {
-            for (int i = 0; i <GridWidth; i++)
-            {
-                for (int j = 0; j < GridHeight; j++)
-                {
-                    for (int k = 0; k < GridLength; k++)
-                    {
-                        Grid[i][j][k].Invalid = false;
-                    }
-                }
-            }
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            ID = 1;
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            ID = 2;
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            ID = 3;
-        }
-    }
-
     public Point GetClosestPointWorldSpace(Vector3 position)
     {
         float sizeX = PointDistance * GridWidth;
         float sizeY = PointDistance * GridHeight;
         float sizeZ = PointDistance * GridLength;
+
         Vector3 pos = position - startPoint;
         float percentageX = Mathf.Clamp01(pos.x / sizeX);
         float percentageY = Mathf.Clamp01(pos.y / sizeY);
@@ -125,6 +95,58 @@ public class WorldManager : MonoBehaviour
         int x = Mathf.Clamp(Mathf.RoundToInt(percentageX * GridWidth), 0, GridWidth - 1);
         int y = Mathf.Clamp(Mathf.RoundToInt(percentageY * GridHeight), 0, GridHeight - 1);
         int z = Mathf.Clamp(Mathf.RoundToInt(percentageZ * GridLength), 0, GridLength - 1);
-        return Grid[x][y][z];
+        Point result= Grid[x][y][z];
+        while (result.Invalid)
+        {
+            int step = 1;
+            List<Point> freePoints = new List<Point>();
+            for (int p = -step; p <= step; p++)
+            {
+                for (int q = -step; q <= step; q++)
+                {
+                    for (int g = -step; g <= step; g++)
+                    {
+                        if (x == p && y == q && z == g)
+                        {
+                            continue;
+                        }
+                        if(!Grid[x + p][y + q][z + g].Invalid)
+                        {
+                            freePoints.Add(Grid[x + p][y + q][z + g]);
+                        }
+                    }
+                }
+            }
+            float distance = Mathf.Infinity;
+            for (int i = 0; i < freePoints.Count; i++)
+            {
+                float dist = (freePoints[i].WorldPosition - position).sqrMagnitude;
+                if (dist < distance)
+                {
+                    result = freePoints[i];
+                    dist = distance;
+                }
+            }
+        }
+        return result;
+    }
+
+    public List<Point> GetFreePoints()
+    {
+        List<Point> freePoints = new List<Point>();
+        for (int i = 0; i < Grid.Length; i++)
+        {
+            for (int j = 0; j < Grid[i].Length; j++)
+            {
+                for (int k = 0; k < Grid[i][j].Length; k++)
+                {
+                    if (!Grid[i][j][k].Invalid)
+                    {
+                        freePoints.Add(Grid[i][j][k]);
+                    }
+                }
+            }
+        }
+        return freePoints;
     }
 }
