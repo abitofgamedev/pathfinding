@@ -14,6 +14,7 @@ public enum AStarAgentStatus
 public class AStarAgent : MonoBehaviour
 {
     public float Speed;
+    public float TurnSpeed;
     [HideInInspector] public int Priority { get; private set; }
     Point _start;
     Point _end;
@@ -160,7 +161,7 @@ public class AStarAgent : MonoBehaviour
         }
     }
 
-    public AStarAgentStatus Pathfinding(Vector3 goal)
+    public AStarAgentStatus Pathfinding(Vector3 goal,bool supressMovement=false)
     {
         _startPosition = transform.position;
         _endPosition = goal;
@@ -210,8 +211,11 @@ public class AStarAgent : MonoBehaviour
             if (current.Coords == _end.Coords)
             {
                 TotalPath = ReconstructPath(startPoint, current, dataSet);
-                Status = AStarAgentStatus.InProgress;
-                StartMoving();
+                if (!supressMovement)
+                {
+                    Status = AStarAgentStatus.InProgress;
+                    StartMoving();
+                }
                 return Status;
             }
 
@@ -301,19 +305,21 @@ public class AStarAgent : MonoBehaviour
         }
 
         List<Vector3> points = new List<Vector3>();
-        //points.Add(_startPosition);
+
+
         points.Add(CornerPoints[CornerPoints.Count - 1].WorldPosition);
         for (int i = CornerPoints.Count - 2; i >= 0; i--)
         {
-            Vector3 centerPos = CornerPoints[i + 1].WorldPosition + (CornerPoints[i].WorldPosition - CornerPoints[i + 1].WorldPosition) / 2f;
-            points.Add(centerPos);
+            //Vector3 centerPos = CornerPoints[i + 1].WorldPosition + (CornerPoints[i].WorldPosition - CornerPoints[i + 1].WorldPosition) / 2f;
+            points.Add(CornerPoints[i].WorldPosition);
         }
         points.Add(CornerPoints[0].WorldPosition);
-        //points.Add(_endPosition);
+
 
         BezierPath bezierPath = new BezierPath(points, false, PathSpace.xyz);
         bezierPath.ControlPointMode = BezierPath.ControlMode.Free;
         int cornerIndex = CornerPoints.Count - 1;
+
 
         bezierPath.SetPoint(1, CornerPoints[cornerIndex].WorldPosition, true);
         for (int i = 2; i < bezierPath.NumPoints - 2; i += 3)
@@ -328,6 +334,7 @@ public class AStarAgent : MonoBehaviour
             cornerIndex--;
         }
         bezierPath.SetPoint(bezierPath.NumPoints - 2, CornerPoints[0].WorldPosition, true);
+
 
         bezierPath.NotifyPathModified();
         PathCreator.bezierPath = bezierPath;
@@ -349,33 +356,27 @@ public class AStarAgent : MonoBehaviour
     IEnumerator Coroutine_CharacterFollowPath()
     {
         Status = AStarAgentStatus.InProgress;
-
-        float length = (transform.position - _startPosition).magnitude;
-        while (length > Speed * Time.deltaTime)
-        {
-            transform.position = Vector3.MoveTowards(transform.position, _startPosition, Speed * Time.deltaTime);
-            length = (transform.position - _startPosition).magnitude;
-            yield return null;
-        }
-
         for (int i = TotalPath.Count - 1; i >= 0; i--)
         {
             SetPathColor();
-            length = (transform.position - TotalPath[i].WorldPosition).magnitude;
-
-            while (length > Speed * Time.deltaTime)
+            float length = (transform.position - TotalPath[i].WorldPosition).magnitude;
+            float l = 0;
+            while (l<length)
             {
-                transform.position = Vector3.MoveTowards(transform.position, TotalPath[i].WorldPosition, Speed * Time.deltaTime);
-                length = (transform.position - TotalPath[i].WorldPosition).magnitude;
-                yield return null;
+                SetPathColor();
+                transform.position += transform.forward * Time.deltaTime * Speed;
+                Vector3 forwardDirection = (TotalPath[i].WorldPosition - transform.position).normalized;
+                transform.forward = Vector3.Slerp(transform.forward, forwardDirection, Time.deltaTime * TurnSpeed);
+                l += Time.deltaTime * Speed;
+                yield return new WaitForFixedUpdate();
             }
-        }
-        length = (transform.position - _endPosition).magnitude;
-        while (length > Speed * Time.deltaTime)
-        {
-            transform.position = Vector3.MoveTowards(transform.position, _endPosition, Speed * Time.deltaTime);
-            length = (transform.position - _endPosition).magnitude;
-            yield return null;
+
+            //while (length > Speed * Time.deltaTime)
+            //{
+            //    transform.position = Vector3.MoveTowards(transform.position, TotalPath[i].WorldPosition, Speed * Time.deltaTime);
+            //    length = (transform.position - TotalPath[i].WorldPosition).magnitude;
+            //    yield return new WaitForFixedUpdate();
+            //}
         }
         SetStationaryPoint();
         Status = AStarAgentStatus.Finished;
@@ -386,35 +387,19 @@ public class AStarAgent : MonoBehaviour
         Status = AStarAgentStatus.InProgress;
         CreateBezierPath();
 
-        float length = (transform.position - _startPosition).magnitude;
-        while (length > Speed * Time.deltaTime)
-        {
-            transform.position = Vector3.MoveTowards(transform.position, _startPosition, Speed * Time.deltaTime);
-            length = (transform.position - _startPosition).magnitude;
-            yield return null;
-        }
-
-
-        length = PathCreator.path.length;
+        float length = PathCreator.path.length;
         float l = 0;
-        Vector3 pos = transform.position + transform.forward;
+
         while (l < length)
         {
             SetPathColor();
-            transform.position = PathCreator.path.GetPointAtDistance(l, EndOfPathInstruction.Stop);
-            transform.forward = transform.position - pos;
-            pos = transform.position;
+            transform.position += transform.forward * Time.deltaTime * Speed;
+            Vector3 forwardDirection = (PathCreator.path.GetPointAtDistance(l, EndOfPathInstruction.Stop) - transform.position).normalized;
+            transform.forward = Vector3.Slerp(transform.forward, forwardDirection, Time.deltaTime * TurnSpeed);
             l += Time.deltaTime * Speed;
-            yield return null;
+            yield return new WaitForFixedUpdate();
         }
 
-        length = (transform.position - _endPosition).magnitude;
-        while (length > Speed * Time.deltaTime)
-        {
-            transform.position = Vector3.MoveTowards(transform.position, _endPosition, Speed * Time.deltaTime);
-            length = (transform.position - _endPosition).magnitude;
-            yield return null;
-        }
 
         SetStationaryPoint();
         Status = AStarAgentStatus.Finished;

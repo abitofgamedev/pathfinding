@@ -110,9 +110,17 @@ public class WorldManager : MonoBehaviour
                         {
                             continue;
                         }
-                        if(!Grid[x + p][y + q][z + g].Invalid)
+                        int i = x + p;
+                        int j = y + q;
+                        int k = z + g;
+                        if (i > -1 && i < GridWidth &&
+                            j > -1 && j < GridHeight &&
+                            k > -1 && k < GridLength)
                         {
-                            freePoints.Add(Grid[x + p][y + q][z + g]);
+                            if (!Grid[x + p][y + q][z + g].Invalid)
+                            {
+                                freePoints.Add(Grid[x + p][y + q][z + g]);
+                            }
                         }
                     }
                 }
