@@ -275,8 +275,11 @@ public class AStarAgent : MonoBehaviour
 
     public void RePath()
     {
-        StopAllCoroutines();
-        StartCoroutine(Coroutine_RePath());
+        if (Status!=AStarAgentStatus.RePath)
+        {
+            StopAllCoroutines();
+            StartCoroutine(Coroutine_RePath());
+        }
     }
 
     IEnumerator Coroutine_RePath()
@@ -292,7 +295,7 @@ public class AStarAgent : MonoBehaviour
             if (Status == AStarAgentStatus.Invalid)
             {
                 Status = AStarAgentStatus.RePath;
-                yield return new WaitForSeconds(Time.deltaTime * Speed);
+                yield return new WaitForSeconds(0.2f);
             }
         }
     }
