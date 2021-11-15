@@ -346,14 +346,7 @@ public class AStarAgent : MonoBehaviour
     private void StartMoving()
     {
         StopAllCoroutines();
-        if (CurvePath)
-        {
-            StartCoroutine(Coroutine_CharacterFollowPathCurve());
-        }
-        else
-        {
-            StartCoroutine(Coroutine_CharacterFollowPath());
-        }
+        StartCoroutine(Coroutine_CharacterFollowPath());
     }
 
     IEnumerator Coroutine_CharacterFollowPath()
@@ -367,19 +360,20 @@ public class AStarAgent : MonoBehaviour
             while (l<length)
             {
                 SetPathColor();
-                transform.position += transform.forward * Time.deltaTime * Speed;
                 Vector3 forwardDirection = (TotalPath[i].WorldPosition - transform.position).normalized;
-                transform.forward = Vector3.Slerp(transform.forward, forwardDirection, Time.deltaTime * TurnSpeed);
+                if (CurvePath)
+                {
+                    transform.position += transform.forward * Time.deltaTime * Speed;
+                    transform.forward = Vector3.Slerp(transform.forward, forwardDirection, Time.deltaTime * TurnSpeed);
+                }
+                else
+                {
+                    transform.forward = forwardDirection;
+                    transform.position = Vector3.MoveTowards(transform.position, TotalPath[i].WorldPosition, Time.deltaTime * Speed);
+                }
                 l += Time.deltaTime * Speed;
                 yield return new WaitForFixedUpdate();
             }
-
-            //while (length > Speed * Time.deltaTime)
-            //{
-            //    transform.position = Vector3.MoveTowards(transform.position, TotalPath[i].WorldPosition, Speed * Time.deltaTime);
-            //    length = (transform.position - TotalPath[i].WorldPosition).magnitude;
-            //    yield return new WaitForFixedUpdate();
-            //}
         }
         SetStationaryPoint();
         Status = AStarAgentStatus.Finished;
