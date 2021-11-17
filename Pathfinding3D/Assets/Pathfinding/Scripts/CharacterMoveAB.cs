@@ -39,6 +39,7 @@ public class CharacterMoveAB : MonoBehaviour
             Transform pom = pointA;
             pointA = pointB;
             pointB = pom;
+            yield return null;
         }
     }
 }
